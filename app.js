@@ -134,57 +134,73 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 		return false;
 	};
 
-	var singleCategoryData = [];
-	var combinedCategoryData = [];
-	var categories = [
-		{name: "fruits", children: ["#banana", "#orange", "#apple"]},
-		{name: "veggies", children: ["#celery", "#kale", "#lettuce", "#potato"]}
-	]; 
-	var T = new twit(twitterOauth);
-	function searchHashtags(k, currentCategory, i){
-		if(k < currentCategory.children.length){
-			var currentHashtag = currentCategory.children[k];
-			T.get('search/tweets', { q: currentHashtag +' since:'+formattedDate, count: 100 }, function(err, reply){
-				console.log("error: "+err); //If there is an error this will return a value
-				
-				//loop through all statuses to find those from last 5 mins
-				var count = 0;
-				for(var j = 0; j < reply.statuses.length; j++){
-					var timeCreated = reply.statuses[j].created_at;
-					if(tweetFromLastMinute(timeCreated, timeLimit)){
-						count++;
-					}
-				}
-				console.log("how many tweets for "+ currentHashtag +" from last 5 minutes?");
-				console.log(count);
+	(function() {
+		var i = 0;
+		var k = 0;
+		var singleCategoryData = [];
+		var combinedCategoryData = [];
+		var categories = [
+			{name: "fruits", children: ["#banana", "#orange", "#apple"]},
+			{name: "veggies", children: ["#celery", "#kale", "#lettuce", "#potato"]},
+			{name: "candy", children:["#snickers", "#lollipop"]}
+		]; 
+		var T = new twit(twitterOauth);
 
-				singleCategoryData.push({name: currentHashtag, size: count});
-				console.log("data inside T.get:");
-				console.log(singleCategoryData);
-				if ((k+1) == categories[i].children.length) {
-					combinedCategoryData.push({name: categories[i].name, children: singleCategoryData});
-					singleCategoryData = [];
-
-					//wrap each category in an overall main category
-					if((i+1) == categories.length){
-						var finalData = {name: "main", children: combinedCategoryData};
-						res.json(finalData);
-					}
-				}
-			});
-			setTimeout(function(){ searchHashtags(k+1, currentCategory, i); }, 10);
+		//outside for loop
+		function searchCategories(){
+			if(i < categories.length){
+				k = 0;
+				searchHashtags(categories[i]);
+			}
+			else{ console.log("finished for loops"); }
 		}
-	}
 
-	function searchCategories(i){
-		if(i < categories.length){
-			searchHashtags(0, categories[i], i);
-			setTimeout(function(){ searchCategories(i+1); }, 10);
+		//inside for loop
+		function searchHashtags(currentCategory){
+			if(k < currentCategory.children.length){
+				console.log(i,k);
+				var currentHashtag = currentCategory.children[k];
+				T.get('search/tweets', { q: currentHashtag +' since:'+formattedDate, count: 100 }, function(err, reply){
+					console.log("error: "+err); //If there is an error this will return a value
+					
+					//loop through all statuses to find those from last 5 mins
+					var count = 0;
+					for(var j = 0; j < reply.statuses.length; j++){
+						var timeCreated = reply.statuses[j].created_at;
+						if(tweetFromLastMinute(timeCreated, timeLimit)){
+							count++;
+						}
+					}
+					console.log("how many tweets for "+ currentHashtag +" from last 5 minutes?");
+					console.log(count);
+
+					singleCategoryData.push({name: currentHashtag, size: count});
+					console.log("data inside T.get:");
+					console.log(singleCategoryData);
+					if ((k+1) == categories[i].children.length) {
+						combinedCategoryData.push({name: categories[i].name, children: singleCategoryData});
+						singleCategoryData = [];
+
+						//wrap each category in an overall main category
+						if((i+1) == categories.length){
+							var finalData = {name: "main", children: combinedCategoryData};
+							res.json(finalData);
+						}
+					}
+					k++;
+					setTimeout(function(){ searchHashtags(currentCategory); }, 0);
+				});
+			}
+
+			else {
+				i++;
+				setTimeout(searchCategories, 0);
+			}
 		}
-	};
 
-	//start searching hashtags with index 0
-	searchCategories(0);
+		//start searching hashtags with index 0
+		searchCategories();
+	})();
 });
 
 
