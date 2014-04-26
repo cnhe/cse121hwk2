@@ -83,41 +83,6 @@ app.use(app.router);
 app.get('/', function(req,res) { 
 	res.render("index");
 });
-/*
-//fbgraph authentication
-app.get('/auth/facebook', function(req, res) {
-	if (!req.query.code) {
-		var authUrl = graph.getOauthUrl({
-			'client_id': process.env.facebook_client_id,
-			'redirect_uri': 'http://localhost:3000/auth/facebook',
-			'scope': 'user_about_me'//you want to update scope to what you want in your app
-		});
-
-		if (!req.query.error) {
-			res.redirect(authUrl);
-		} else {
-			res.send('access denied');
-		}
-		return;
-	}
-	graph.authorize({
-		'client_id': process.env.facebook_client_id,
-		'redirect_uri': 'http://localhost:3000/auth/facebook',
-		'client_secret': process.env.facebook_client_secret,
-		'code': req.query.code
-	}, function( err, facebookRes) {
-		res.redirect('/UserHasLoggedIn');
-	});
-});
-
-app.get('/UserHasLoggedIn', function(req, res) {
-	graph.get('me', function(err, response) {
-		console.log(err); //if there is an error this will return a value
-		data = { facebookData: response};
-		res.render('facebook', data);
-	});
-});*/
-
 
 //twitter authentication Oauth setup
 //this will set up twitter oauth for any user not just one
@@ -169,12 +134,17 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 		return false;
 	};
 
-	var hashtagData = new Array();
-	var hashtags = ["#compassion", "#angry", "#creative", "#b1a4", "#2ne1"]; 
+	var singleCategoryData = [];
+	var combinedCategoryData = [];
+	var categories = [
+		{name: "fruits", children: ["#banana", "#orange", "#apple"]},
+		{name: "veggies", children: ["#celery", "#kale", "#lettuce", "#potato"]}
+	]; 
 	var T = new twit(twitterOauth);
-	function searchHashtags(i){
-		if(i < hashtags.length){
-			T.get('search/tweets', { q: hashtags[i]+' since:'+formattedDate, count: 100 }, function(err, reply){
+	function searchHashtags(k, currentCategory, i){
+		if(k < currentCategory.children.length){
+			var currentHashtag = currentCategory.children[k];
+			T.get('search/tweets', { q: currentHashtag +' since:'+formattedDate, count: 100 }, function(err, reply){
 				console.log("error: "+err); //If there is an error this will return a value
 				
 				//loop through all statuses to find those from last 5 mins
@@ -185,25 +155,36 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 						count++;
 					}
 				}
-				console.log("how many tweets for "+ hashtags[i] +" from last 5 minutes?");
+				console.log("how many tweets for "+ currentHashtag +" from last 5 minutes?");
 				console.log(count);
 
-				hashtagData.push({name: hashtags[i], size: count});
+				singleCategoryData.push({name: currentHashtag, size: count});
 				console.log("data inside T.get:");
-				console.log(hashtagData);
-				if ((i+1) == hashtags.length) {
-					console.log("data outside T.get:");
-					console.log(hashtagData);
-					var hashtagData2 = {name: "emotions", children: hashtagData};
-					res.json(hashtagData2);
+				console.log(singleCategoryData);
+				if ((k+1) == categories[i].children.length) {
+					combinedCategoryData.push({name: categories[i].name, children: singleCategoryData});
+					singleCategoryData = [];
+
+					//wrap each category in an overall main category
+					if((i+1) == categories.length){
+						var finalData = {name: "main", children: combinedCategoryData};
+						res.json(finalData);
+					}
 				}
 			});
-			searchHashtags(i+1);
+			setTimeout(function(){ searchHashtags(k+1, currentCategory, i); }, 10);
+		}
+	}
+
+	function searchCategories(i){
+		if(i < categories.length){
+			searchHashtags(0, categories[i], i);
+			setTimeout(function(){ searchCategories(i+1); }, 10);
 		}
 	};
 
 	//start searching hashtags with index 0
-	searchHashtags(0);
+	searchCategories(0);
 });
 
 
