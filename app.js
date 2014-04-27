@@ -112,11 +112,10 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 	//I can use twitterOauth as previously it's an array set up with the correcet information
 	var date = new Date();
 	var formattedDate = date.getFullYear() + "-" + (date.getMonth()+1) + "-" + date.getDate();
-	//console.log(formattedDate);
 	//how many minutes to search
 	var timeLimit = 5;
 	//figure out if the tweet is from the last 5 mins
-	function tweetFromLastMinute(timeCreated, timeLimit){
+	function tweetWithinTimeLimit(timeCreated, timeLimit){
 		//expect timeCreated format to be "Thu Apr 24 23:04:47 +0000 2014"
 		var firstColon = timeCreated.indexOf(':');
 		var tweetHour = timeCreated.slice(firstColon-2,firstColon);
@@ -140,9 +139,8 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 		var singleCategoryData = [];
 		var combinedCategoryData = [];
 		var categories = [
-			{name: "fruits", children: ["#banana", "#orange", "#apple"]},
-			{name: "veggies", children: ["#celery", "#kale", "#lettuce", "#potato"]},
-			{name: "candy", children:["#snickers", "#lollipop"]}
+			{name: "sad", children:["#depression", "#pain", "#stressed", "#lonely", "#anger"]},
+			{name: "happy", children: ["#optimistic", "#creativity", "#kindness", "#inspiration", "#blessing"]}
 		]; 
 		var T = new twit(twitterOauth);
 
@@ -165,16 +163,23 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 					
 					//loop through all statuses to find those from last 5 mins
 					var count = 0;
+					var followers = 0;
+					var friends = 0;
 					for(var j = 0; j < reply.statuses.length; j++){
 						var timeCreated = reply.statuses[j].created_at;
-						if(tweetFromLastMinute(timeCreated, timeLimit)){
+						if(tweetWithinTimeLimit(timeCreated, timeLimit)){
 							count++;
+
+							//aggregate num followers and friends
+							followers = followers + reply.statuses[j].user.followers_count;
+							friends = friends + reply.statuses[j].user.friends_count;
 						}
 					}
 					console.log("how many tweets for "+ currentHashtag +" from last 5 minutes?");
 					console.log(count);
 
-					singleCategoryData.push({name: currentHashtag, size: count});
+					singleCategoryData.push({name: currentHashtag, size: count, 
+											 avgFollowers: (followers/count), avgFriends: (friends/count)});
 					console.log("data inside T.get:");
 					console.log(singleCategoryData);
 					if ((k+1) == categories[i].children.length) {
@@ -191,19 +196,15 @@ app.get('/twitter/default', ensureAuthenticated, function(req, res) {
 					setTimeout(function(){ searchHashtags(currentCategory); }, 0);
 				});
 			}
-
 			else {
 				i++;
 				setTimeout(searchCategories, 0);
 			}
 		}
-
 		//start searching hashtags with index 0
 		searchCategories();
 	})();
 });
-
-
 
 //set environment ports and start application
 app.set('port', process.env.PORT || 3000);

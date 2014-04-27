@@ -14,29 +14,25 @@
       <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
     <![endif]-->  
     <style>
-        div.bar {
-          display: inline-block;
-          width: 20px;
-          height: 75px;   /* We'll override this later */
-          background-color: teal;
-          margin-right: 2px;
-        }
-
         circle {
-          fill: rgb(31, 119, 180);
-          fill-opacity: .25;
-          stroke: rgb(31, 119, 180);
-          stroke-width: 1px;
+          fill-opacity: .5;
         }
 
-        .leaf circle {
-          fill: #ff7f0e;
-          fill-opacity: 1;
+        circle:hover {
+          fill-opacity: .8;
         }
 
         text {
           font: 10px sans-serif;
         }
+
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
+        }
+
       </style>
       <link rel="stylesheet" type="text/css" href="css/bootstrap.css">
       <link rel="stylesheet" type="text/css" href="css/bootstrap-theme.css">
@@ -44,54 +40,100 @@
 </head>
 
 <body>
-<script type="text/javascript">
-    var diameter = 760,
-    format = d3.format(",d");
+<script>
 
-var pack = d3.layout.pack()
-    .size([diameter - 4, diameter - 4])
-    .value(function(d) { return d.size; });
+var diameter = 1300,
+    format = d3.format(",d"),
+    color = d3.scale.category10();
+
+var bubble = d3.layout.pack()
+    .sort(null)
+    .size([diameter, diameter])
+    .padding(1.5);
+
+var margin = {top: 20, right: 30, bottom: 30, left: 50},
+    width = 1230 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
 
 var svg = d3.select("body").append("svg")
-    .attr("width", diameter)
-    .attr("height", diameter)
-  .append("g")
-    .attr("transform", "translate(2,2)");
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 d3.json("/twitter/default/", function(error, root) {
-  var node = svg.datum(root).selectAll(".node")
-      .data(pack.nodes)
-    .enter().append("g")
-      .attr("class", function(d) { return d.children ? "node" : "leaf node"; })
-      .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+  var yScale = d3.scale.linear()
+    .domain([0, d3.max(bubble.nodes(classes(root)), (function(d) { return d.avgFriends; }))])
+    .range([height - 100, 100]);
+
+  var xScale = d3.scale.linear()
+    .domain([0, d3.max(bubble.nodes(classes(root)), (function(d) { return d.avgFollowers; }))])
+    .range([100, width - 100]);
+
+  var xAxis = d3.svg.axis()
+    .scale(xScale)
+    .orient("bottom");
+
+  var yAxis = d3.svg.axis()
+    .scale(yScale)
+    .orient("left");
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+      .append("text")
+        .attr("transform", "translate( "+ width + ", 0)")
+        .style("text-anchor", "end")
+        .text("Avg # Followers");
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+      .append("text")
+        .attr("transform", "translate(50, 80)")
+        .style("text-anchor", "end")
+        .text("Avg # Friends");
+
+  var node = svg.selectAll(".node")
+      .data(bubble.nodes(classes(root))
+      .filter(function(d) { return !d.children; }))
+      .enter().append("g")
+      .attr("class", "node")
+      .attr("transform", function(d) { return "translate(" + xScale(d.avgFollowers) + "," + yScale(d.avgFriends) + ")"; });
 
   node.append("title")
-      .text(function(d) { return d.name + (d.children ? "" : ": " + format(d.size)); });
+      .text(function(d) { return d.className + ": " + format(d.value) + 
+                        " followers: " + d.avgFollowers + " friends: " + d.avgFriends; });
 
   node.append("circle")
-      .attr("r", function(d) { return d.r; });
+      .attr("r", function(d) { return d.r/2; })
+      .style("fill", function(d) { return color(d.packageName); });
 
-  node.filter(function(d) { return !d.children; }).append("text")
+  node.append("text")
       .attr("dy", ".3em")
       .style("text-anchor", "middle")
-      .text(function(d) { return d.name.substring(0, d.r / 3); });
+      .text(function(d) { return d.className.substring(0, d.r / 3); });
 });
+
+// Returns a flattened hierarchy containing all leaf nodes under the root.
+function classes(root) {
+  var classes = [];
+
+  function recurse(name, node) {
+    if (node.children) node.children.forEach(function(child) { recurse(node.name, child); });
+    else classes.push({packageName: name, className: node.name, 
+                       value: node.size, avgFollowers: node.avgFollowers, avgFriends: node.avgFriends});
+  }
+
+  recurse(null, root);
+  return {children: classes};
+}
 
 d3.select(self.frameElement).style("height", diameter + "px");
 
-
-</script> 
+</script>
 
   <div class="container">
-  	<h1>Twitter</h1>
-      <h4>You're following:<h4>
-      {{#each twitterData.statuses}}
-        <h5>
-        Their Name  - {{user.screen_name}} <br>
-        The tweet - {{text}} <br>
-        <h5>
-      {{/each}}
-    <br> 
   </div>
 
     <script src="https://code.jquery.com/jquery.js"></script>
