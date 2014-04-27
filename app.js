@@ -51,7 +51,7 @@ function ensureAuthenticated(req, res, next) {
 passport.use(new passportTwitterStrategy({
 	consumerKey: process.env.twitter_client_id,
 	consumerSecret: process.env.twitter_client_secret,
-	callbackURL: "http://localhost:3000/auth/twitter/callback"
+	callbackURL: "http://hashtagemotions.herokuapp.com/auth/twitter/callback"
 }, function (token, tokenSecret, profile, done) {
 	//setting up access token
 	accessToken = token;

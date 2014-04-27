@@ -1,7 +1,7 @@
 {
-  "name": "Boilerplate",
+  "name": "#emotions",
   "version": "0.0.1",
-  "author": "Chu Shao",
+  "author": "Christine He & Jessica Cho",
   "scripts": {
     "start": "node app.js"
   },
